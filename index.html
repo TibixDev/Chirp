@@ -16,6 +16,8 @@
             image-rendering: crisp-edges;
         ">
     </canvas>
+    <button onclick="resetEmu()">reset</button>
+    <input id="rom" type="text" oninput="changeROMLink()" placeholder="./roms/ibm.rom">
     <script src="emu.js"></script>
 </body>
 </html>
