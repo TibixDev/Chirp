@@ -1,15 +1,3 @@
-// const EmuDefault = {
-//     ram: () => new Uint8Array(4096),
-//     pixels: () => Array(64).fill().map(()=>Array(32).fill(0)),
-//     pc: () => 0x200,
-//     stack: () => [],
-//     ir: () => 0,
-//     delay_timer: () => 0,
-//     sound_timer: () => 0,
-//     regs: () => Array(16).fill(0),
-//     pixels: () => Array(64).fill().map(()=>Array(32).fill(0))
-// }
-
 //* Display
 let canvas = document.getElementById("display");
 let ctx = canvas.getContext("2d");
@@ -28,8 +16,9 @@ let soundTimer = EmuDefault.soundTimer;
 let regs = EmuDefault.regs;
 let pixels = EmuDefault.pixels;
 
-let debug = false;
-let rom = "./roms/test.rom"
+//* External Variables 
+let isDebugMode = false;
+let romLink = "./roms/test.rom"
 
 let shouldIncrementPC = true;
 let isPaused = false;
@@ -41,13 +30,7 @@ const options = {
     }
 }
 
-function logDebug(inp) {
-    if (debug) {
-        console.log(inp)
-    }
-}
-
-const font = [
+const FONT = [
     0xF0, 0x90, 0x90, 0x90, 0xF0, // 0
     0x20, 0x60, 0x20, 0x20, 0x70, // 1
     0xF0, 0x10, 0xF0, 0x80, 0xF0, // 2
@@ -68,32 +51,38 @@ const font = [
 
 
 //* Helper Functionsa
-function hex(num) {
+function LogDebug(inp) {
+    if (isDebugMode) {
+        console.log(inp)
+    }
+}
+
+function ToHex(num) {
     return num.toString(16).padStart(4, "0");
 }
 
-function binary(num) {
+function ToBinary(num) {
     return num.toString(2).padStart(16, "0");
 }
 
-function byteToBits(byte) {
+function ByteToBits(byte) {
     return [...Array(8)].map((x,idx)=>byte>>idx&1);
 }
 
-function getRandomInt(max) {
+function GetRandomInt(max) {
     return Math.floor(Math.random() * max);
 }
 
-function logInstructions(len, offset = 0, index=pc) {
+function LogInstructions(len, offset = 0, index=pc) {
     let instructions = [];
     for (let i = 0; i < len; i++) {
-        instructions.push(`0x${hex(ram[index + i + offset])}`);
+        instructions.push(`0x${ToHex(ram[index + i + offset])}`);
     }
     return instructions;
 }
 
 //* FUNCTION DEFINITIONS
-function drawPixels() {
+function DrawPixels() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "lightblue";
@@ -108,7 +97,7 @@ function drawPixels() {
     }
 }
 
-function startROM(url) {
+function StartROM(url) {
     return fetch(url)
         .then(response => response.arrayBuffer())
         .then(buffer => {
@@ -118,54 +107,54 @@ function startROM(url) {
                 ram[0x200 + i] = buffer[i];
             }
             console.log(`[readROM] Stored ${buffer.byteLength} bytes in RAM (${ram.byteLength})`);
-            startEmu();
+            StartEmu();
         })
 }
 
-function processCycle() {
+function ProcessCycle() {
     const instruction = ram[pc] << 8 | ram[pc + 1];
-    processInstruction(instruction);
+    ProcessInstruction(instruction);
     if (shouldIncrementPC) {        
         pc += 2;
     }
     shouldIncrementPC = true;
 }
 
-function processInstruction(instruction) {
-    // logDebug(`opcode: ${hex(instruction)} && mask: ${hex(instruction & 0xF000)} && shifted: ${hex((instruction & 0xF000) >> 12)}`);
+function ProcessInstruction(instruction) {
+    // LogDebug(`opcode: ${hex(instruction)} && mask: ${hex(instruction & 0xF000)} && shifted: ${hex((instruction & 0xF000) >> 12)}`);
     const opcode = (instruction & 0xF000) >> 12;
     const x = (instruction & 0x0F00) >> 8;
     const y = (instruction & 0x00F0) >> 4;
     const n = instruction & 0x000F;
     const nn = instruction & 0x00FF;
     const nnn = instruction & 0x0FFF;
-    //logDebug(`[processor] pc: ${pc} opcode: ${opcode}, x: ${x}, y: ${y}, n: ${n}, nn: ${nn}, nnn: ${nnn}`);
+    // LogDebug(`[processor] pc: ${pc} opcode: ${opcode}, x: ${x}, y: ${y}, n: ${n}, nn: ${nn}, nnn: ${nnn}`);
 
     switch (opcode) {
         // Clear Screen (00E0) && Call Return (00EE)
         case 0x0:
             if (nn === 0xE0) {
-                logDebug("[0x00E0] Clear Screen")
+                LogDebug("[0x00E0] Clear Screen")
                 pixels = Array(64).fill().map(()=>Array(32).fill(0))
                 // ctx.fillStyle = "black";
                 // ctx.fillRect(0, 0, canvas.width, canvas.height);
             } else if (nn === 0xEE) {
                 pc = stack.pop()
-                logDebug(`[0x00EE] Call Return ${pc}`)
+                LogDebug(`[0x00EE] Call Return ${pc}`)
                 shouldIncrementPC = false;
             }
             break;
 
         // Jump (1NNN)
         case 0x1:
-            logDebug(`[0x1] Jumping to ${nnn} from ${pc}`)
+            LogDebug(`[0x1] Jumping to ${nnn} from ${pc}`)
             pc = nnn;
             shouldIncrementPC = false;
             break;
 
         // Call (2NNN)
         case 0x2:
-            logDebug(`[0x2] Call ${nnn} from ${pc}`)
+            LogDebug(`[0x2] Call ${nnn} from ${pc}`)
             stack.push(pc+2)
             pc = nnn;
             shouldIncrementPC = false;
@@ -201,13 +190,13 @@ function processInstruction(instruction) {
 
         // Set register VX (6XNN)
         case 0x6:
-            logDebug(`[0x6] Set regs[${x}] to ${nn}`);
+            LogDebug(`[0x6] Set regs[${x}] to ${nn}`);
             regs[x] = nn;
             break;
         
         // Add to VX (7XNN)
         case 0x7:
-            logDebug(`[0x7] Added ${nn} to regs[${x}] (${regs[x]} -> ${regs[x] + nn})`);
+            LogDebug(`[0x7] Added ${nn} to regs[${x}] (${regs[x]} -> ${regs[x] + nn})`);
             regs[x] += nn;
             // Overflow (regs[0xF] not affected here)
             if (regs[x] > 256) {
@@ -218,39 +207,39 @@ function processInstruction(instruction) {
         
         // Set
         case 0x8:
-            logDebug(`[0x8] Set`);
+            LogDebug(`[0x8] Set`);
             switch (n) {
                 // Set VX -> VY (8XY0)
                 case 0:
-                    logDebug(`[0x8] > Case 8XY0 [VX = VY] ${regs[x]} -> ${regs[y]}`);
+                    LogDebug(`[0x8] > Case 8XY0 [VX = VY] ${regs[x]} -> ${regs[y]}`);
                     regs[x] = regs[y];
                     break;
                 
                 // Set VX to VX | VY
                 case 1:
-                    logDebug(`[0x8] > Case 8XY1 [VX = VX | VY] ${regs[x]} | ${regs[y]} (${regs[x] | regs[y]})`);
+                    LogDebug(`[0x8] > Case 8XY1 [VX = VX | VY] ${regs[x]} | ${regs[y]} (${regs[x] | regs[y]})`);
                     regs[x] = regs[x] | regs[y];
                     break;
 
                 // Set VX to VX & VY
                 case 2:
-                    logDebug(`[0x8] > Case 8XY2 [VX = VX & VY] ${regs[x]} & ${regs[y]} (${regs[x] & regs[y]})`);
+                    LogDebug(`[0x8] > Case 8XY2 [VX = VX & VY] ${regs[x]} & ${regs[y]} (${regs[x] & regs[y]})`);
                     regs[x] = regs[x] & regs[y];
                     break;
                 
                 // Set VX to VX ^ VY
                 case 3:
-                    logDebug(`[0x8] > Case 8XY3 [VX = VX ^ VY] ${regs[x]} ^ ${regs[y]} (${regs[x] ^ regs[y]})`);
+                    LogDebug(`[0x8] > Case 8XY3 [VX = VX ^ VY] ${regs[x]} ^ ${regs[y]} (${regs[x] ^ regs[y]})`);
                     regs[x] = regs[x] ^ regs[y];
                     break;
 
                 // Set VX to VX + VY
                 case 4:
-                    logDebug(`[0x8] > Case 8XY4 [VX = VX + VY] ${regs[x]} + ${regs[y]} (${regs[x] + regs[y]})`);
+                    LogDebug(`[0x8] > Case 8XY4 [VX = VX + VY] ${regs[x]} + ${regs[y]} (${regs[x] + regs[y]})`);
                     regs[x] = regs[x] + regs[y];
                     // Overflow
                     if (regs[x] > 255) {
-                        logDebug(`[0x8] >> Overflow ${regs[x]} -> ${regs[x] - 256}`);
+                        LogDebug(`[0x8] >> Overflow ${regs[x]} -> ${regs[x] - 256}`);
                         regs[x] -= 256;
                         regs[0xF] = 1;
                     } else {
@@ -260,13 +249,13 @@ function processInstruction(instruction) {
                 
                 // Set VX to VX - VY
                 case 5:
-                    logDebug(`[0x8] > Case 8XY5 [VX = VX - VY] ${regs[x]} - ${regs[y]} (${regs[x] - regs[y]})`);
+                    LogDebug(`[0x8] > Case 8XY5 [VX = VX - VY] ${regs[x]} - ${regs[y]} (${regs[x] - regs[y]})`);
                     regs[x] = regs[x] - regs[y];
                     // Underflow
                     if (regs[x] > regs[y]) {
                         regs[0xF] = 1;
                     } else {
-                        logDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
+                        LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
                         regs[x] += 256;
                         regs[0xF] = 0;
                     }
@@ -274,13 +263,13 @@ function processInstruction(instruction) {
 
                 // Set VX to VY - VX
                 case 7:
-                    logDebug(`[0x8] > Case 8XY5 [VX = VY - VX] ${regs[y]} - ${regs[x]} (${regs[y] - regs[x]})`);
+                    LogDebug(`[0x8] > Case 8XY5 [VX = VY - VX] ${regs[y]} - ${regs[x]} (${regs[y] - regs[x]})`);
                     regs[x] = regs[y] - regs[x];
                     // Underflow
                     if (regs[y] > regs[x]) {
                         regs[0xF] = 1;
                     } else {
-                        logDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
+                        LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
                         regs[x] += 256;
                         regs[0xF] = 0;
                     }
@@ -291,14 +280,14 @@ function processInstruction(instruction) {
                     if (options.opcodes.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
-                    logDebug(`[0x8] > Case 8XY6 [VX = VX >> 1] ${regs[x]} >> 1 (${regs[x] >> 1})`);
+                    LogDebug(`[0x8] > Case 8XY6 [VX = VX >> 1] ${regs[x]} >> 1 (${regs[x] >> 1})`);
                     regs[x] = regs[x] >> 1;
                     // Underflow
                     if (regs[x] < 0) {
-                        logDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
+                        LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
                         regs[x] += 256;
                     }
-                    let bits = byteToBits(regs[x]);
+                    let bits = ByteToBits(regs[x]);
                     regs[0xf] = bits[0];
                     break;
                 }
@@ -308,14 +297,14 @@ function processInstruction(instruction) {
                     if (options.opcodes.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
-                    logDebug(`[0x8] > Case 8XYE [VX = VX << 1] ${regs[x]} << 1 (${regs[x] << 1})`);
+                    LogDebug(`[0x8] > Case 8XYE [VX = VX << 1] ${regs[x]} << 1 (${regs[x] << 1})`);
                     regs[x] = regs[x] << 1;
                     // Overflow
                     if (regs[x] > 256) {
-                        logDebug(`[0x8] >> Overflow ${regs[x]} -> ${regs[x] - 256}`);
+                        LogDebug(`[0x8] >> Overflow ${regs[x]} -> ${regs[x] - 256}`);
                         regs[x] -= 256;
                     }
-                    let bits = byteToBits(regs[x]);
+                    let bits = ByteToBits(regs[x]);
                     regs[0xf] = bits[7];
                     break;
                 }
@@ -324,7 +313,7 @@ function processInstruction(instruction) {
 
         // Set IR (ANNN)
         case 0xA:
-            logDebug(`[0xA] Setting ir to nnn (${ir} -> ${nnn})`);
+            LogDebug(`[0xA] Setting ir to nnn (${ir} -> ${nnn})`);
             // logDebug(`Setting IR to ${nnn}`);
             ir = nnn;
             break;
@@ -332,12 +321,12 @@ function processInstruction(instruction) {
         // Jump with offset (BNNN)
         case 0xB:
             if (options.jump_with_offset_legacy) {
-                logDebug(`[0xB] LEGACY: Jumping to nnn + regs[0] (${pc} -> [${nnn} + ${regs[0]}] -> ${nnn + regs[0]})`);
+                LogDebug(`[0xB] LEGACY: Jumping to nnn + regs[0] (${pc} -> [${nnn} + ${regs[0]}] -> ${nnn + regs[0]})`);
                 pc = nnn + regs[0];
                 shouldIncrementPC = false;
             } else {
                 // TODO: Test, this is very questionable.
-                logDebug(`[0xB] Jumping to x + nn + regs[x] (${pc} -> [${x} + ${nn} + ${regs[x]}] -> ${x + nn + regs[x]})`);
+                LogDebug(`[0xB] Jumping to x + nn + regs[x] (${pc} -> [${x} + ${nn} + ${regs[x]}] -> ${x + nn + regs[x]})`);
                 pc = x + nn + regs[x];
                 shouldIncrementPC = false;
             }
@@ -345,20 +334,20 @@ function processInstruction(instruction) {
         
         // Random
         case 0xC:
-            regs[x] = getRandomInt(256) & nn;
+            regs[x] = GetRandomInt(256) & nn;
             break;
         
         /// Draw (DXYN)
         case 0xD:
-            logDebug("[0xD] Drawing")
+            LogDebug("[0xD] Drawing")
             let coord_x = regs[x] & 63;
             let coord_y = regs[y] & 31;
             regs[0xf] = 0;
             for (let i = 0; i < n; i++) {
-                // logDebug(`[0xD] > ir: ${ir}, ir+i: ${ir+i}. byte: ${ram[ir+i]}`)
+                // LogDebug(`[0xD] > ir: ${ir}, ir+i: ${ir+i}. byte: ${ram[ir+i]}`)
                 let sprite_row = ram[ir+i];
-                let bits = byteToBits(sprite_row).reverse();
-                logDebug("[0xD] > SpriteRow bytes: " + bits.join("").replaceAll(0, "⬛").replaceAll(1, "⬜"))
+                let bits = ByteToBits(sprite_row).reverse();
+                LogDebug("[0xD] > SpriteRow bytes: " + bits.join("").replaceAll(0, "⬛").replaceAll(1, "⬜"))
                 for (let j = 0; j < 8; j++) {
                     if (coord_x+j > 64 || coord_y+i > 32) {
                         break;
@@ -371,12 +360,12 @@ function processInstruction(instruction) {
                     }
                 }
             }
-            drawPixels();
+            DrawPixels();
             break;
     }
 }
 
-function startEmu() {
+function StartEmu() {
     loop = setInterval(() => {
         if (!isPaused) {
             // Dec delay and sound timers
@@ -386,12 +375,12 @@ function startEmu() {
             if (soundTimer > 0) {
                 soundTimer--;
             }
-            processCycle();
+            ProcessCycle();
         }
     }, 13.3)
 }
 
-function pauseEmu() {
+function PauseEmu() {
     isPaused = !isPaused;
     if (isPaused) {
         document.getElementById("pauseBtn").textContent = "continue"
@@ -400,7 +389,7 @@ function pauseEmu() {
     }
 }
 
-function resetEmu() {
+function ResetEmu() {
     console.log("Resetting emulator...")
     clearInterval(loop);
     ram = EmuDefault.ram;
@@ -412,16 +401,16 @@ function resetEmu() {
     regs = EmuDefault.regs;
     pixels = EmuDefault.pixels;    
     if (isPaused) {
-        pauseEmu();
+        PauseEmu();
     }
-    startROM(rom)
+    StartROM(romLink)
 }
 
-document.getElementById("rom").value = rom;
-function changeROMLink() {
+document.getElementById("rom").value = romLink;
+function ChangeROMLink() {
     let text = document.getElementById("rom").value;
-    rom = text;
+    romLink = text;
 }
 
 let loop = null;
-startROM(rom)
+StartROM(romLink)
