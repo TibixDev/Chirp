@@ -8,4 +8,5 @@ class EmuDefault {
     static get soundTimer() { return 0 }
     static get regs() { return Array(16).fill(0) };
     static get pixels() { return Array(64).fill().map(()=>Array(32).fill(0)) }
+    static get keyboard() { return new Uint8Array(16) }
 }

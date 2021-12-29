@@ -15,6 +15,7 @@ let delayTimer = EmuDefault.delayTimer;
 let soundTimer = EmuDefault.soundTimer;
 let regs = EmuDefault.regs;
 let pixels = EmuDefault.pixels;
+let keyboard = EmuDefault.keyboard;
 
 //* External Variables 
 let isDebugMode = false;
@@ -22,6 +23,9 @@ let romLink = "./roms/test.rom"
 
 let shouldIncrementPC = true;
 let isPaused = false;
+
+//* Constants
+const keyboardKeys = [49, 50, 51, 52, 81, 87, 69, 62, 65, 83, 68, 70, 89, 88, 67, 86]
 
 const options = {
     opcodes: {
@@ -82,6 +86,27 @@ function LogInstructions(len, offset = 0, index=pc) {
 }
 
 //* FUNCTION DEFINITIONS
+function Malloc(ram, address, buffer) {
+    if (buffer.length > 4096 - address) {
+        return LogDebug(`[Malloc] The buffer is too big (Expected max ${4096 - address} bytes, got ${buffer.length} bytes).`)
+    }
+    for(let i = 0; i < buffer.length; i++) {
+        ram[address + i] = buffer[i];
+    }
+}
+
+function StartROM(url) {
+    return fetch(url)
+        .then(response => response.arrayBuffer())
+        .then(buffer => {
+            buffer = new Uint8Array(buffer);
+            console.log(`[readROM] Fetched ${buffer.byteLength} bytes from "${url}"`);
+            Malloc(ram, 0x200, buffer);
+            console.log(`[readROM] Stored ${buffer.byteLength} bytes in RAM (${ram.byteLength})`);
+            StartEmu();
+        })
+}
+
 function DrawPixels() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -97,18 +122,46 @@ function DrawPixels() {
     }
 }
 
-function StartROM(url) {
-    return fetch(url)
-        .then(response => response.arrayBuffer())
-        .then(buffer => {
-            buffer = new Uint8Array(buffer);
-            console.log(`[readROM] Fetched ${buffer.byteLength} bytes from "${url}"`);
-            for (let i = 0x0; i < buffer.byteLength; i++) {
-                ram[0x200 + i] = buffer[i];
+function StartEmu() {
+    Malloc(ram, 0, FONT);
+    loop = setInterval(() => {
+        if (!isPaused) {
+            // Dec delay and sound timers
+            if (delayTimer > 0) {
+                delayTimer--;
             }
-            console.log(`[readROM] Stored ${buffer.byteLength} bytes in RAM (${ram.byteLength})`);
-            StartEmu();
-        })
+            if (soundTimer > 0) {
+                soundTimer--;
+            }
+            ProcessCycle();
+        }
+    }, 13.3)
+}
+
+function PauseEmu() {
+    isPaused = !isPaused;
+    if (isPaused) {
+        document.getElementById("pauseBtn").textContent = "continue"
+    } else {
+        document.getElementById("pauseBtn").textContent = "pause"
+    }
+}
+
+function ResetEmu() {
+    console.log("Resetting emulator...")
+    clearInterval(loop);
+    ram = EmuDefault.ram;
+    pc = EmuDefault.pc;
+    stack = EmuDefault.stack;
+    ir = EmuDefault.ir;
+    delayTimer = EmuDefault.delayTimer;
+    soundTimer = EmuDefault.soundTimer;
+    regs = EmuDefault.regs;
+    pixels = EmuDefault.pixels;    
+    if (isPaused) {
+        PauseEmu();
+    }
+    StartROM(romLink)
 }
 
 function ProcessCycle() {
@@ -335,6 +388,7 @@ function ProcessInstruction(instruction) {
         // Random
         case 0xC:
             regs[x] = GetRandomInt(256) & nn;
+            LogDebug(`[0xC] Supplying random int ${regs[x]}`);
             break;
         
         /// Draw (DXYN)
@@ -349,7 +403,7 @@ function ProcessInstruction(instruction) {
                 let bits = ByteToBits(sprite_row).reverse();
                 LogDebug("[0xD] > SpriteRow bytes: " + bits.join("").replaceAll(0, "⬛").replaceAll(1, "⬜"))
                 for (let j = 0; j < 8; j++) {
-                    if (coord_x+j > 64 || coord_y+i > 32) {
+                    if (coord_x+j > 63 || coord_y+i > 31) {
                         break;
                     }
                     if (bits[j] === 1 && pixels[coord_x+j][coord_y+i] === 1) {
@@ -362,48 +416,100 @@ function ProcessInstruction(instruction) {
             }
             DrawPixels();
             break;
-    }
-}
-
-function StartEmu() {
-    loop = setInterval(() => {
-        if (!isPaused) {
-            // Dec delay and sound timers
-            if (delayTimer > 0) {
-                delayTimer--;
+    
+        /// Skip if key (EX9E && EXA1)
+        case 0xE:
+            LogDebug("[0xE] Skip if key")
+            if (nn === 0x9E && keyboard[regs[x]] === 1) {
+                LogDebug(`[0xEX9E] Incrementing PC (${pc} -> ${pc + 2}) because ${keyboardKeys[regs[x]]} was held.`);
+                pc+=2;
             }
-            if (soundTimer > 0) {
-                soundTimer--;
+            else if (nn === 0xA1 && keyboard[regs[x]] === 0) {
+                LogDebug(`[0xEXA1] Incrementing PC (${pc} -> ${pc + 2}) because ${keyboardKeys[regs[x]]} wasn't held.`);
+                pc+=2;
             }
-            ProcessCycle();
-        }
-    }, 13.3)
-}
+            break;
 
-function PauseEmu() {
-    isPaused = !isPaused;
-    if (isPaused) {
-        document.getElementById("pauseBtn").textContent = "continue"
-    } else {
-        document.getElementById("pauseBtn").textContent = "pause"
-    }
-}
+        // A ton of stuff.
+        case 0xF:
+            // console.log(`[0xF] Got F instruction with nn ${nn}`)
+            switch (nn) {
+                // Set delayTimer -> VX (FX07)
+                case 7:
+                    LogDebug(`[0xFX07] Setting regs[x] to delayTimer (${regs[x]} -> ${delayTimer})`);
+                    regs[x] = delayTimer;
+                    break;
+                
+                // Set VX -> delayTimer (FX15)
+                case 0x15:
+                    LogDebug(`[0xFX15] Setting delayTimer to regs[x] (${delayTimer} -> ${regs[x]})`);
+                    delayTimer = regs[x];
+                    break;
 
-function ResetEmu() {
-    console.log("Resetting emulator...")
-    clearInterval(loop);
-    ram = EmuDefault.ram;
-    pc = EmuDefault.pc;
-    stack = EmuDefault.stack;
-    ir = EmuDefault.ir;
-    delayTimer = EmuDefault.delayTimer;
-    soundTimer = EmuDefault.soundTimer;
-    regs = EmuDefault.regs;
-    pixels = EmuDefault.pixels;    
-    if (isPaused) {
-        PauseEmu();
+                // Set VX -> soundTimer (FX18)
+                case 0x18:
+                    LogDebug(`[0xFX18] Setting soundTimer to regs[x] (${soundTimer} -> ${regs[x]})`);
+                    soundTimer = regs[x];
+                    break;
+
+                // Add to ir (FX1E)
+                case 0x1E:
+                    LogDebug(`[0xFX1E] Adding regs[x] to ir (${ir} -> ${ir + regs[x]})`);
+                    ir += regs[x];
+                    // Overflow
+                    if (ir > 4095) {
+                        ir -= 4096;
+                        regs[0xf] = 1;
+                    }
+                    break;
+                
+                // Font Character (FX29) 
+                case 0x29: 
+                    LogDebug(`[0xFX29] Fetching font character ${regs[x]} at addr ${x*5}`);
+                    ir = ram[regs[x]*5];
+                    break;
+                
+                // Binary-coded decimal conversion
+                case 0x33:
+                    let digits = parseInt(regs[x]).toString().split('').map(Number);
+                    Malloc(ram, ir, digits)
+                    LogDebug(`[0xFX33] Converted ${regs[x]} into decimal (${digits}) and placed into RAM at addr ${ir}`);
+                    break;
+
+                // Store regs in memory (FX55)
+                case 0x55:
+                    LogDebug(`[0xFX55] Storing regs in ram at addr ${ir} with x ${x}`);
+                    for (let i = 0; i < x+1; i++) {
+                        Malloc(ram, ir+i, [regs[i]])
+                    }
+                    break;
+
+                // Load regs from memory (FX65)
+                case 0x65:
+                    LogDebug(`[0xFX65] Loading ram regs into regs from addr ${ir} with x ${x}`);
+                    for (let i = 0; i < x+1; i++) {
+                        LogDebug(`[0xFX65]`)
+                        regs[i] = ram[ir+i];
+                    }
+                    break;
+
+                // Wait for key (FXA0)
+                case 0xA0:
+                    LogDebug(`[0xFXA0] Waiting for key`);
+                    let toggledKey = keyboard.findIndex(k => k === 1);
+                    if (toggledKey == -1) {
+                        shouldIncrementPC = false;
+                    } else {
+                        LogDebug(`[0xFXA0] Got key ${toggledKey}, continuing...`);
+                        regs[x] = toggledKey;
+                    }
+                    break;
+                
+                default:
+                    console.log("[0xF] Something got fucked " + nn);
+            }
+
     }
-    StartROM(romLink)
 }
 
 document.getElementById("rom").value = romLink;
@@ -411,6 +517,27 @@ function ChangeROMLink() {
     let text = document.getElementById("rom").value;
     romLink = text;
 }
+
+document.addEventListener('keydown', HandleKeyDown);
+function HandleKeyDown(e) {
+    if (!e.repeat) {
+        if (keyboardKeys.includes(e.keyCode)) {
+            LogDebug(`[KeyDown] Code: ${e.code} | KeyCode: ${e.keyCode}`)
+            keyboard[keyboardKeys.indexOf(e.keyCode)] = 1;
+            LogDebug(keyboard);
+        }
+    }
+}
+
+document.addEventListener('keyup', HandleKeyUp);
+function HandleKeyUp(e) {
+    if (keyboardKeys.includes(e.keyCode)) {
+        LogDebug(`[KeyUp] Code: ${e.code} | KeyCode: ${e.keyCode}`)
+        setTimeout(() => keyboard[keyboardKeys.indexOf(e.keyCode)] = 0, 20);
+        LogDebug(keyboard);
+    }
+}
+
 
 let loop = null;
 StartROM(romLink)
