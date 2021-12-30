@@ -25,7 +25,8 @@ let shouldIncrementPC = true;
 let isPaused = false;
 
 //* Constants
-const keyboardKeys = [49, 50, 51, 52, 81, 87, 69, 62, 65, 83, 68, 70, 89, 88, 67, 86]
+// const keyboardKeys = [49, 50, 51, 52, 81, 87, 69, 62, 65, 83, 68, 70, 89, 88, 67, 86]
+const keyboardKeys = [88, 49, 50, 51, 81, 87, 69, 65, 83, 68, 89, 67, 52, 62, 70, 86]
 
 const quirks = {
     shift_VX_is_VY: false,
@@ -311,7 +312,8 @@ function ProcessInstruction(instruction) {
                     LogDebug(`[0x8] > Case 8XY5 [VX = VX - VY] ${regs[x]} - ${regs[y]} (${regs[x] - regs[y]})`);
                     regs[x] = regs[x] - regs[y];
                     // Underflow
-                    if (regs[x] > regs[y]) {
+                    // if (regs[x] > regs[y]) {
+                    if (regs[x] >= 0) {
                         regs[0xF] = 1;
                     } else {
                         LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
@@ -325,7 +327,8 @@ function ProcessInstruction(instruction) {
                     LogDebug(`[0x8] > Case 8XY5 [VX = VY - VX] ${regs[y]} - ${regs[x]} (${regs[y] - regs[x]})`);
                     regs[x] = regs[y] - regs[x];
                     // Underflow
-                    if (regs[y] > regs[x]) {
+                    //if (regs[y] > regs[x]) {
+                    if (regs[y] >= 0) {
                         regs[0xF] = 1;
                     } else {
                         LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
@@ -515,7 +518,7 @@ function ProcessInstruction(instruction) {
                     break;
 
                 // Wait for key (FXA0)
-                case 0xA0:
+                case 0xA:
                     LogDebug(`[0xFXA0] Waiting for key`);
                     let toggledKey = keyboard.findIndex(k => k === 1);
                     if (toggledKey == -1) {
@@ -527,7 +530,7 @@ function ProcessInstruction(instruction) {
                     break;
                 
                 default:
-                    console.log("[0xF] Something got fucked " + nn);
+                    console.log("[0xF] Something got fucked " + nnn);
             }
 
     }
