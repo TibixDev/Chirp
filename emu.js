@@ -28,11 +28,10 @@ let isPaused = false;
 const keyboardKeys = [49, 50, 51, 52, 81, 87, 69, 62, 65, 83, 68, 70, 89, 88, 67, 86]
 
 const quirks = {
-    opcodes: {
-        shift_VX_is_VY: false,
-        jump_with_offset_legacy: false,
-        store_increment_ir: false
-    }
+    shift_VX_is_VY: false,
+    jump_with_offset_legacy: false,
+    store_increment_ir: false,
+    draw_sprite_wrap: true
 }
 
 const FONT = [
@@ -337,7 +336,7 @@ function ProcessInstruction(instruction) {
 
                 // Shift VX >> 1
                 case 6: {
-                    if (quirks.opcodes.shift_VX_is_VY) {
+                    if (quirks.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
                     LogDebug(`[0x8] > Case 8XY6 [VX = VX >> 1] ${regs[x]} >> 1 (${regs[x] >> 1})`);
@@ -354,7 +353,7 @@ function ProcessInstruction(instruction) {
                 
                 // Shift VX << 1
                 case 0xE: {
-                    if (quirks.opcodes.shift_VX_is_VY) {
+                    if (quirks.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
                     LogDebug(`[0x8] > Case 8XYE [VX = VX << 1] ${regs[x]} << 1 (${regs[x] << 1})`);
@@ -401,8 +400,8 @@ function ProcessInstruction(instruction) {
         /// Draw (DXYN)
         case 0xD:
             LogDebug("[0xD] Drawing")
-            let coord_x = regs[x] & 63;
-            let coord_y = regs[y] & 31;
+            let coordX = regs[x] & 63;
+            let coordY = regs[y] & 31;
             regs[0xf] = 0;
             for (let i = 0; i < n; i++) {
                 // LogDebug(`[0xD] > ir: ${ir}, ir+i: ${ir+i}. byte: ${ram[ir+i]}`)
@@ -410,14 +409,22 @@ function ProcessInstruction(instruction) {
                 let bits = ByteToBits(sprite_row).reverse();
                 LogDebug("[0xD] > SpriteRow bytes: " + bits.join("").replaceAll(0, "⬛").replaceAll(1, "⬜"))
                 for (let j = 0; j < 8; j++) {
-                    if (coord_x+j > 63 || coord_y+i > 31) {
+                    let jx = coordX + j;
+                    let jy = coordY + i;
+
+                    if (quirks.draw_sprite_wrap) {
+                        jx &= 63;
+                        jy &= 31;
+                    }
+
+                    if ((jx > 63 || jy > 31) && !quirks.draw_sprite_wrap) {
                         break;
                     }
-                    if (bits[j] === 1 && pixels[coord_x+j][coord_y+i] === 1) {
-                        pixels[coord_x+j][coord_y+i] = 0;
+                    if (bits[j] === 1 && pixels[jx][jy] === 1) {
+                        pixels[jx][jy] = 0;
                         regs[0xf] = 1;
-                    } else if (bits[j] === 1 && pixels[coord_x+j][coord_y+i] !== 1) {
-                        pixels[coord_x+j][coord_y+i] = 1;
+                    } else if (bits[j] === 1 && pixels[jx][jy] !== 1) {
+                        pixels[jx][jy] = 1;
                     }
                 }
             }
