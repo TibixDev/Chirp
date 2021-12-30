@@ -27,10 +27,11 @@ let isPaused = false;
 //* Constants
 const keyboardKeys = [49, 50, 51, 52, 81, 87, 69, 62, 65, 83, 68, 70, 89, 88, 67, 86]
 
-const options = {
+const quirks = {
     opcodes: {
         shift_VX_is_VY: false,
-        jump_with_offset_legacy: false
+        jump_with_offset_legacy: false,
+        store_increment_ir: false
     }
 }
 
@@ -86,7 +87,7 @@ function LogInstructions(len, offset = 0, index=pc) {
 }
 
 //* FUNCTION DEFINITIONS
-function Malloc(ram, address, buffer) {
+function MemSet(ram, address, buffer) {
     if (buffer.length > 4096 - address) {
         return LogDebug(`[Malloc] The buffer is too big (Expected max ${4096 - address} bytes, got ${buffer.length} bytes).`)
     }
@@ -101,7 +102,7 @@ function StartROM(url) {
         .then(buffer => {
             buffer = new Uint8Array(buffer);
             console.log(`[readROM] Fetched ${buffer.byteLength} bytes from "${url}"`);
-            Malloc(ram, 0x200, buffer);
+            MemSet(ram, 0x200, buffer);
             console.log(`[readROM] Stored ${buffer.byteLength} bytes in RAM (${ram.byteLength})`);
             StartEmu();
         })
@@ -114,17 +115,18 @@ function DrawPixels() {
     for (let x = 0; x < 64; x++) {
         for (let y = 0; y < 32; y++) {
             //^ Rainbow Mode
-            //ctx.fillStyle = "#" + Math.floor(Math.random()*16777215).toString(16);
+            // ctx.fillStyle = "#" + Math.floor(Math.random()*16777215).toString(16);
             if (pixels[x][y] == 1) {
                 ctx.fillRect(x, y, 1, 1);
             }
         }
     }
+    previousPixels = pixels;
 }
 
 function StartEmu() {
-    Malloc(ram, 0, FONT);
-    loop = setInterval(() => {
+    MemSet(ram, 0, FONT);
+    timerLoop = setInterval(() => {
         if (!isPaused) {
             // Dec delay and sound timers
             if (delayTimer > 0) {
@@ -133,9 +135,13 @@ function StartEmu() {
             if (soundTimer > 0) {
                 soundTimer--;
             }
-            ProcessCycle();
         }
     }, 13.3)
+    emuLoop = setInterval(() => {
+        if (!isPaused) {
+            ProcessCycle();
+        }
+    }, 1);
 }
 
 function PauseEmu() {
@@ -149,7 +155,8 @@ function PauseEmu() {
 
 function ResetEmu() {
     console.log("Resetting emulator...")
-    clearInterval(loop);
+    clearInterval(timerLoop);
+    clearInterval(emuLoop);
     ram = EmuDefault.ram;
     pc = EmuDefault.pc;
     stack = EmuDefault.stack;
@@ -330,7 +337,7 @@ function ProcessInstruction(instruction) {
 
                 // Shift VX >> 1
                 case 6: {
-                    if (options.opcodes.shift_VX_is_VY) {
+                    if (quirks.opcodes.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
                     LogDebug(`[0x8] > Case 8XY6 [VX = VX >> 1] ${regs[x]} >> 1 (${regs[x] >> 1})`);
@@ -347,7 +354,7 @@ function ProcessInstruction(instruction) {
                 
                 // Shift VX << 1
                 case 0xE: {
-                    if (options.opcodes.shift_VX_is_VY) {
+                    if (quirks.opcodes.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
                     LogDebug(`[0x8] > Case 8XYE [VX = VX << 1] ${regs[x]} << 1 (${regs[x] << 1})`);
@@ -373,7 +380,7 @@ function ProcessInstruction(instruction) {
 
         // Jump with offset (BNNN)
         case 0xB:
-            if (options.jump_with_offset_legacy) {
+            if (quirks.jump_with_offset_legacy) {
                 LogDebug(`[0xB] LEGACY: Jumping to nnn + regs[0] (${pc} -> [${nnn} + ${regs[0]}] -> ${nnn + regs[0]})`);
                 pc = nnn + regs[0];
                 shouldIncrementPC = false;
@@ -465,14 +472,14 @@ function ProcessInstruction(instruction) {
                 
                 // Font Character (FX29) 
                 case 0x29: 
-                    LogDebug(`[0xFX29] Fetching font character ${regs[x]} at addr ${x*5}`);
-                    ir = ram[regs[x]*5];
+                    LogDebug(`[0xFX29] Fetching font character ${regs[x]} at addr ${regs[x]*5}`);
+                    ir = (regs[x]&15)*5;
                     break;
                 
                 // Binary-coded decimal conversion
                 case 0x33:
                     let digits = parseInt(regs[x]).toString().split('').map(Number);
-                    Malloc(ram, ir, digits)
+                    MemSet(ram, ir, digits)
                     LogDebug(`[0xFX33] Converted ${regs[x]} into decimal (${digits}) and placed into RAM at addr ${ir}`);
                     break;
 
@@ -480,7 +487,11 @@ function ProcessInstruction(instruction) {
                 case 0x55:
                     LogDebug(`[0xFX55] Storing regs in ram at addr ${ir} with x ${x}`);
                     for (let i = 0; i < x+1; i++) {
-                        Malloc(ram, ir+i, [regs[i]])
+                        if (quirks.store_increment_ir) {
+                            ir++;
+                        }
+                        const addr = quirks.store_increment_ir ? ir : ir + i;
+                        MemSet(ram, addr, [regs[i]])
                     }
                     break;
 
@@ -488,8 +499,11 @@ function ProcessInstruction(instruction) {
                 case 0x65:
                     LogDebug(`[0xFX65] Loading ram regs into regs from addr ${ir} with x ${x}`);
                     for (let i = 0; i < x+1; i++) {
-                        LogDebug(`[0xFX65]`)
-                        regs[i] = ram[ir+i];
+                        if (quirks.store_increment_ir) {
+                            ir++;
+                        }
+                        const addr = quirks.store_increment_ir ? ir : ir + i;
+                        regs[i] = ram[addr];
                     }
                     break;
 
@@ -539,5 +553,6 @@ function HandleKeyUp(e) {
 }
 
 
-let loop = null;
+let timerLoop = null;
+let emuLoop = null;
 StartROM(romLink)
