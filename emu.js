@@ -141,7 +141,7 @@ function StartEmu() {
         if (!isPaused) {
             ProcessCycle();
         }
-    }, 1);
+    }, 20);
 }
 
 function PauseEmu() {
@@ -172,12 +172,16 @@ function ResetEmu() {
 }
 
 function ProcessCycle() {
-    const instruction = ram[pc] << 8 | ram[pc + 1];
-    ProcessInstruction(instruction);
-    if (shouldIncrementPC) {        
-        pc += 2;
+    for (let i = 0; i < 10; i++) {
+        const instruction = ram[pc] << 8 | ram[pc + 1];
+        console.time("instruction");
+        ProcessInstruction(instruction);
+        console.timeEnd("instruction");
+        if (shouldIncrementPC) {        
+            pc += 2;
+        }
+        shouldIncrementPC = true;
     }
-    shouldIncrementPC = true;
 }
 
 function ProcessInstruction(instruction) {
@@ -259,7 +263,7 @@ function ProcessInstruction(instruction) {
             LogDebug(`[0x7] Added ${nn} to regs[${x}] (${regs[x]} -> ${regs[x] + nn})`);
             regs[x] += nn;
             // Overflow (regs[0xF] not affected here)
-            if (regs[x] > 256) {
+            if (regs[x] > 255) {
                 regs[x] -= 256;
             }
             break;
@@ -328,7 +332,7 @@ function ProcessInstruction(instruction) {
                     regs[x] = regs[y] - regs[x];
                     // Underflow
                     //if (regs[y] > regs[x]) {
-                    if (regs[y] >= 0) {
+                    if (regs[x] >= 0) {
                         regs[0xF] = 1;
                     } else {
                         LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
@@ -343,14 +347,13 @@ function ProcessInstruction(instruction) {
                         regs[x] = regs[y];
                     }
                     LogDebug(`[0x8] > Case 8XY6 [VX = VX >> 1] ${regs[x]} >> 1 (${regs[x] >> 1})`);
-                    regs[x] = regs[x] >> 1;
-                    // Underflow
-                    if (regs[x] < 0) {
-                        LogDebug(`[0x8] >> Underflow ${regs[x]} -> ${regs[x] + 256}`);
-                        regs[x] += 256;
+                    let flag = 0;
+                    if (regs[x] & 0x01) {
+                        LogDebug(`[0x8] >> SetFlag 1`);
+                        flag = 1;
                     }
-                    let bits = ByteToBits(regs[x]);
-                    regs[0xf] = bits[0];
+                    regs[x] = regs[x] >> 1;
+                    regs[0xf] = flag;
                     break;
                 }
                 
@@ -359,15 +362,14 @@ function ProcessInstruction(instruction) {
                     if (quirks.shift_VX_is_VY) {
                         regs[x] = regs[y];
                     }
-                    LogDebug(`[0x8] > Case 8XYE [VX = VX << 1] ${regs[x]} << 1 (${regs[x] << 1})`);
-                    regs[x] = regs[x] << 1;
-                    // Overflow
-                    if (regs[x] > 256) {
-                        LogDebug(`[0x8] >> Overflow ${regs[x]} -> ${regs[x] - 256}`);
-                        regs[x] -= 256;
+                    LogDebug(`[0x8] > Case 8XYE [VX = VX << 1] ${regs[x]} << 1 (${(regs[x] << 1) & 0xFF})`);
+                    let flag = 0;
+                    if (regs[x] & 0x80) {
+                        LogDebug(`[0x8] >> SetFlag 1`);
+                        flag = 1;
                     }
-                    let bits = ByteToBits(regs[x]);
-                    regs[0xf] = bits[7];
+                    regs[x] = (regs[x] << 1) & 0xFF;
+                    regs[0xf] = flag;
                     break;
                 }
             }
@@ -376,7 +378,7 @@ function ProcessInstruction(instruction) {
         // Set IR (ANNN)
         case 0xA:
             LogDebug(`[0xA] Setting ir to nnn (${ir} -> ${nnn})`);
-            // logDebug(`Setting IR to ${nnn}`);
+            // LogDebug(`Setting IR to ${nnn}`);
             ir = nnn;
             break;
 
