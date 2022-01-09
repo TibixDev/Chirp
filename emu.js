@@ -1,5 +1,6 @@
 //* Display
 let canvas = document.getElementById("display");
+//let ctx = canvas.getContext("2d", { alpha: false });
 let ctx = canvas.getContext("2d");
 canvas.style.width = "1024px";
 canvas.style.height = "512px";
@@ -112,6 +113,7 @@ function DrawPixels() {
     ctx.fillStyle = "black";
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = "lightblue";
+    
     for (let x = 0; x < 64; x++) {
         for (let y = 0; y < 32; y++) {
             //^ Rainbow Mode
@@ -121,7 +123,14 @@ function DrawPixels() {
             }
         }
     }
-    previousPixels = pixels;
+    
+    /* This might be faster one day, until then it lies in this comment
+    console.time("dPutImageData");
+    let pixelData = Uint8ClampedArray.from(pixels.flat().flatMap(pixel => pixel === 1 ? [0, 190, 0, 255] : [0, 0, 0, 255]));
+    let imageData = new ImageData(pixelData, 64, 32);
+    ctx.putImageData(imageData, 0, 0)
+    console.timeEnd("dPutImageData");
+    */
 }
 
 function StartEmu() {
@@ -174,9 +183,9 @@ function ResetEmu() {
 function ProcessCycle() {
     for (let i = 0; i < 10; i++) {
         const instruction = ram[pc] << 8 | ram[pc + 1];
-        console.time("instruction");
+        //console.time("instruction");
         ProcessInstruction(instruction);
-        console.timeEnd("instruction");
+        //console.timeEnd("instruction");
         if (shouldIncrementPC) {        
             pc += 2;
         }
@@ -532,8 +541,12 @@ function ProcessInstruction(instruction) {
                     break;
                 
                 default:
-                    console.log("[0xF] Something got fucked " + nnn);
+                    console.error("[0xF] Invalid 0xF type instruction, nnn: " + nnn);
             }
+            break;
+        
+        default:
+            console.error(`[Interpreter] Got invalid instruction (${opcode}), this should never happen.`)
 
     }
 }

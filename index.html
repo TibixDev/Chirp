@@ -10,10 +10,11 @@
     <canvas
         id="display"
         style="
-            image-rendering: -moz-crisp-edges;
-            image-rendering: -webkit-crisp-edges;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
+            image-rendering: -moz-crisp-edges;
+            image-rendering: -webkit-crisp-edges;
+            -ms-interpolation-mode: nearest-neighbor;
         ">
     </canvas>
     <button onclick="ResetEmu()">reset</button>
