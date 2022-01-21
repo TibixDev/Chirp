@@ -17,11 +17,11 @@
             -ms-interpolation-mode: nearest-neighbor;
         ">
     </canvas>
-    <button onclick="ResetEmu()">reset</button>
-    <button id="pauseBtn" onclick="PauseEmu()">pause</button>
-    <button id="pauseBtn" onclick="ProcessCycle()">step</button>
-    <input id="rom" type="text" oninput="ChangeROMLink()" placeholder="./roms/ibm.rom">
+    <button onclick="emulator.ResetEmu()">reset</button>
+    <button id="pauseBtn" onclick="emulator.PauseEmu()">pause</button>
+    <button id="pauseBtn" onclick="emulator.ProcessCycle()">step</button>
+    <input id="rom" type="text" oninput="emulator.ChangeROMLink()" placeholder="./roms/ibm.rom">
     <script src="def.js"></script>
-    <script src="emu.js"></script>
+    <script src="emuclass.js"></script>
 </body>
 </html>
