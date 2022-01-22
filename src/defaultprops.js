@@ -1,4 +1,4 @@
-class EmuDefault {
+export class EmuDefault {
     static get ram() { return new Uint8Array(4096) }
     static get pixels() { return Array(64).fill().map(()=>Array(32).fill(0)) };
     static get pc() { return 0x200 };

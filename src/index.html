@@ -4,24 +4,25 @@
     <meta charset="UTF-8">
     <meta http-equiv="X-UA-Compatible" content="IE=edge">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>ChirpEmu</title>
+    <title><%= htmlWebpackPlugin.options.title %></title>
+    <%= htmlWebpackPlugin.tags.headTags.script %>
 </head>
 <body style="background-color: #292929;">
     <canvas
         id="display"
         style="
+            border-radius: 0.75rem;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
             image-rendering: -moz-crisp-edges;
             image-rendering: -webkit-crisp-edges;
             -ms-interpolation-mode: nearest-neighbor;
-        ">
+    ">
     </canvas>
-    <button onclick="emulator.ResetEmu()">reset</button>
-    <button id="pauseBtn" onclick="emulator.PauseEmu()">pause</button>
-    <button id="pauseBtn" onclick="emulator.ProcessCycle()">step</button>
-    <input id="rom" type="text" oninput="emulator.ChangeROMLink()" placeholder="./roms/ibm.rom">
-    <script src="def.js"></script>
-    <script src="emuclass.js"></script>
+    <button id="resetBtn">Reset</button>
+    <button id="pauseBtn">Pause</button>
+    <button id="stepBtn">Step</button>
+    <input id="romLink" type="text" placeholder="./roms/ibm.rom">
+    <%= htmlWebpackPlugin.tags.bodyTags %>
 </body>
 </html>
