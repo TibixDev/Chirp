@@ -3,6 +3,7 @@ import { Display } from "./display";
 import { Keyboard } from "./keyboard";
 import { EmuDefault } from "./defaultprops";
 import { Log } from "./logger";
+import Peer from 'peerjs';
 
 window.Log = Log;
 const keyboard = new Keyboard(EmuDefault.keyboard, EmuDefault.keyboardKeys);
@@ -33,3 +34,31 @@ const resetBtn = document.getElementById("resetBtn");
 resetBtn.addEventListener("click", () => {
     emulator.Reset();
 });
+
+// P2P Stuff
+const peerID = `chirp-${Math.floor(Math.random() * 10000)}`;
+const peer = new Peer(peerID);
+console.log("Peer ID: " + peerID);
+
+let peerConn = null;
+peer.on('connection', (conn) => {
+    conn.on('data', (data) => {
+        console.log(data);
+    });
+    conn.on('open', () => {
+        conn.send('hello!');
+        peerConn = conn;
+        window.peerConn = peerConn;
+    });
+});
+
+function connect(id) {
+    const conn = peer.connect(`chirp-${id}`);
+    conn.on('open', () => {
+      conn.send('hi!');
+    });
+    return conn;
+}
+
+window.peer = peer;
+window.connect = connect;
