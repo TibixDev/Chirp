@@ -8,7 +8,7 @@ export class Emulator {
         
         //* External Variables 
         this.isDebugMode = isDebugMode;
-        this.romLink = rom;
+        this.rom = rom;
         
         this.shouldIncrementPC = true;
         this.isPaused = false;
@@ -52,17 +52,25 @@ export class Emulator {
         }
     }
     
-    LoadROM(url) {
-        return fetch(url)
-            .then(response => response.arrayBuffer())
-            .then(buffer => {
-                buffer = new Uint8Array(buffer);
-                console.log(`[readROM] Fetched ${buffer.byteLength} bytes from "${url}"`);
-                this.MemCpy(this.ram, 0x200, buffer);
-                console.log(this.ram);
-                console.log(`[readROM] Stored ${buffer.byteLength} bytes in this.ram (${this.ram.byteLength})`);
-                this.Start();
-            })
+    LoadROM(rom) {
+        console.log(`[LoadROMFromURL] Loading ROM...`);
+        // We check if the ROM is a URL or a ByteStream
+        // and proceed accordingly with fetch or plain MemCpy
+        if (rom instanceof ArrayBuffer || rom instanceof Uint8Array) {
+            this.MemCpy(this.ram, 0x200, rom);
+            this.Start();
+        } else {
+            return fetch(rom)
+                .then(response => response.arrayBuffer())
+                .then(buffer => {
+                    buffer = new Uint8Array(buffer);
+                    console.log(`[LoadROMFromURL] Fetched ${buffer.byteLength} bytes from "${rom}"`);
+                    this.MemCpy(this.ram, 0x200, buffer);
+                    console.log(this.ram);
+                    console.log(`[LoadROMFromURL] Stored ${buffer.byteLength} bytes in this.ram (${this.ram.byteLength})`);
+                    this.Start();
+                })
+        }
     }
     
     Start() {
@@ -89,6 +97,8 @@ export class Emulator {
     
     Pause() {
         this.isPaused = !this.isPaused;
+        this.isDebugMode = !this.isDebugMode;
+        Log.isDebug = this.isDebugMode;
     }
     
     Reset() {
@@ -106,19 +116,17 @@ export class Emulator {
         if (this.isPaused) {
             this.Pause();
         }
-        this.LoadROM(this.romLink)
+        this.LoadROM(this.rom)
     }
 
-    ChangeROMLink(rom) {
-        this.romLink = rom;
+    ChangeROM(rom) {
+        this.rom = rom;
     }
     
     ProcessCycle() {
         for (let i = 0; i < 10; i++) {
             const instruction = this.ram[this.pc] << 8 | this.ram[this.pc + 1];
-            //console.time("instruction");
             this.ProcessInstruction(instruction);
-            //console.timeEnd("instruction");
             if (this.shouldIncrementPC) {        
                 this.pc += 2;
             }
@@ -126,6 +134,16 @@ export class Emulator {
         }
     }
     
+    Step() {
+        const instruction = this.ram[this.pc] << 8 | this.ram[this.pc + 1];
+        this.ProcessInstruction(instruction);
+        if (this.shouldIncrementPC) {        
+            this.pc += 2;
+        }
+        this.shouldIncrementPC = true;
+
+    }
+
     ProcessInstruction(instruction) {
         const opcode = (instruction & 0xF000) >> 12;
         const x = (instruction & 0x0F00) >> 8;
@@ -461,7 +479,7 @@ export class Emulator {
                     // Wait for key (FXA0)
                     case 0xA:
                         Log.debug(`[0xFXA0] Waiting for key`);
-                        let toggledKey = keyboard.keys.findIndex(k => k === 1);
+                        let toggledKey = this.keyboard.keys.findIndex(k => k === 1);
                         if (toggledKey == -1) {
                             this.shouldIncrementPC = false;
                         } else {

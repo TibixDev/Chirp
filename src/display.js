@@ -4,8 +4,7 @@ export class Display {
     constructor(canvas) {
         this.canvas = canvas;
         this.ctx = this.canvas.getContext("2d", { alpha: false });
-        this.canvas.style.width = "1024px";
-        this.canvas.style.height = "512px";
+        this.canvas.style.width = "95%";
         this.canvas.width = 64;
         this.canvas.height = 32;
         this.pixels = EmuDefault.pixels;

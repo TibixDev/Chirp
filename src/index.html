@@ -6,23 +6,71 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><%= htmlWebpackPlugin.options.title %></title>
     <%= htmlWebpackPlugin.tags.headTags.script %>
-</head>
-<body style="background-color: #292929;">
-    <canvas
-        id="display"
-        style="
+    <link rel="stylesheet" href="https://cdn.simplecss.org/simple.min.css">
+    <style>
+        .margin-auto {
+            margin: auto;
+            width: 50%;
+        }
+        .btn-div {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            gap: 0.7em;
+            margin-top: 0.5em;
+            margin-bottom: 0.5em;
+        }
+
+        .footer-info {
+            padding-top: 1em;
+            padding-bottom: 1em;
+        }
+
+        .footer-info p {
+            padding: 0;
+            margin: 0.2em;
+        }
+
+        .footer-title {
+            font-size: 2em;
+            font-weight: 600;
+            padding: 0;
+            margin: 0;
+        }
+
+        #display {
+            margin-top: 1em;
+            margin-left: auto;
+            margin-right: auto;
             border-radius: 0.75rem;
             image-rendering: pixelated;
             image-rendering: crisp-edges;
             image-rendering: -moz-crisp-edges;
             image-rendering: -webkit-crisp-edges;
             -ms-interpolation-mode: nearest-neighbor;
-    ">
-    </canvas>
-    <button id="resetBtn">Reset</button>
-    <button id="pauseBtn">Pause</button>
-    <button id="stepBtn">Step</button>
-    <input id="romLink" type="text" placeholder="./roms/ibm.rom">
+        }
+    </style>
+</head>
+<body style="background-color: #292929;">
+    <canvas id="display"></canvas>
+    <div class="btn-div">
+        <button id="resetBtn">Reset</button>
+        <button id="pauseBtn">Pause</button>
+        <button id="stepBtn">Step</button>
+    </div>
+    <div class="btn-div" id="romControls">
+        <input id="romLink" type="text" placeholder="./roms/ibm.rom">
+        <input id="romFile" type="file">
+    </div>
     <%= htmlWebpackPlugin.tags.bodyTags %>
+    <footer>
+        <p class="footer-title">Chirp - A Chip-8 Emulator made in JS</p>
+        <div class="footer-info">
+            <p>Author: <a href="https://github.com/TibixDev/">TibixDev</a></p>
+            <p>Mail: <a href="mailto:fuloptibi03@gmail.com">fuloptibi03@gmail.com</a></p>
+            <p>Repository: <a href="https://github.com/TibixDev/Chirp">GitHub</a></p>
+        </div>
+        <strong>Copyright (c) 2022 TibixDev | Licensed under the MIT license</strong>
+    </footer>
 </body>
 </html>

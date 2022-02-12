@@ -16,7 +16,19 @@ window.emulator = emulator;
 
 const romLink = document.getElementById("romLink");
 romLink.addEventListener("input", () => {
-    emulator.ChangeROMLink(romLink.value);
+    emulator.ChangeROM(romLink.value);
+});
+
+const romFile = document.getElementById("romFile");
+romFile.addEventListener("change", () => {
+    const file = romFile.files[0];
+    const reader = new FileReader();
+    reader.onload = () => {
+        const arrayBuffer = reader.result;
+        const rom = new Uint8Array(arrayBuffer);
+        emulator.ChangeROM(rom);
+    };
+    reader.readAsArrayBuffer(file);
 });
 
 const pauseBtn = document.getElementById("pauseBtn");
