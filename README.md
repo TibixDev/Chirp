@@ -54,7 +54,7 @@
 <!-- ABOUT THE PROJECT -->
 ## About The Project
 
-[![Chirp Screenshot][chirp-screenshot]](https://i.imgur.com/d7hrkl6.png)
+[![Chirp Screenshot][chirp-screenshot]](https://i.imgur.com/vNzpg0e.png)
 
 <p align="right">(<a href="#top">back to top</a>)</p>
 
@@ -73,8 +73,7 @@
 <!-- GETTING STARTED -->
 ## Getting Started
 
-This is an example of how you may give instructions on setting up your project locally.
-To get a local copy up and running follow these simple example steps.
+Chirp doesn't use any frameworks, you will just need to compile the project with Webpack and use the generated directory structure from `dist`.
 
 ### Prerequisites
 
@@ -149,8 +148,8 @@ Distributed under the MIT License. See `LICENSE` for more information.
 <!-- CONTACT -->
 ## Contact
 
-Mail: [fuloptibi03@gmail.com](mailto:fuloptibi03@gmail.com)
-Discord: `Tibix#5166`
+* Mail: [fuloptibi03@gmail.com](mailto:fuloptibi03@gmail.com)
+* Discord: `Tibix#5166`
 
 Project Link: [https://github.com/TibixDev/Chirp](https://github.com/TibixDev/Chirp)
 
