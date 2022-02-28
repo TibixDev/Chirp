@@ -4,7 +4,7 @@
 <br />
 <div align="center">
   <a href="https://github.com/TibixDev/Chirp">
-    <img src="images/logo.png" alt="Logo" width="80" height="80">
+    <img src="https://i.imgur.com/I3bu4Z7.png" alt="Chirp Logo" width="80" height="80">
   </a>
 
 <h3 align="center">Chirp</h3>
@@ -180,4 +180,4 @@ Project Link: [https://github.com/TibixDev/Chirp](https://github.com/TibixDev/Ch
 [issues-url]: https://github.com/TibixDev/Chirp/issues
 [license-shield]: https://img.shields.io/github/license/TibixDev/Chirp.svg?style=for-the-badge
 [license-url]: https://github.com/TibixDev/Chirp/blob/master/LICENSE.txt
-[chirp-screenshot]: https://i.imgur.com/d7hrkl6.png
+[chirp-screenshot]: https://i.imgur.com/vNzpg0e.png
